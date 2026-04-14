@@ -1,5 +1,6 @@
 .section .rodata
 fmt: .string "%d "
+fmt_last: .string "%d"
 newline: .string "\n"
 
 .section .data
@@ -165,12 +166,20 @@ print_loop:
 do_print:
     slli t0, s4, 2
     add  t0, s2, t0
-    lw   a1, 0(t0)           
+    lw   a1, 0(t0)
+    # Check if last element
+    addi t1, s0, -1
+    beq  s4, t1, last_val
 1:  auipc a0, %pcrel_hi(fmt)
     addi  a0, a0, %pcrel_lo(1b)
     jal  ra, printf
     addi s4, s4, 1
     jal  x0, print_loop
+last_val:
+1:  auipc a0, %pcrel_hi(fmt_last)
+    addi  a0, a0, %pcrel_lo(1b)
+    jal  ra, printf
+    # No increment needed, just fall to exit
 
 exit:
 1:  auipc a0, %pcrel_hi(newline)

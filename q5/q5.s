@@ -39,8 +39,8 @@ main:
       ecall
       addi a7, x0, 63 #a7=63 is read 
       addi a0, s0, 0 #a0=fd
-2:    auipc a1, %pcrel_hi(buffer1)  # %pcrel_hi gives upper 20 bits of PC-relative offset to buffer1, linker fills this at link time
-      addi  a1, a1, %pcrel_lo(2b)   # %pcrel_lo gives lower 12 bits using same target as auipc at label 2b, works across sections
+2:    auipc a1, %pcrel_hi(buffer1)  
+      addi  a1, a1, %pcrel_lo(2b)  
       addi a2, x0, 1 #a2 = number of bytes to read 
       ecall 
       addi a7, x0, 62
@@ -50,15 +50,15 @@ main:
       ecall
       addi a7, x0, 63
       addi a0, s0, 0
-3:    auipc a1, %pcrel_hi(buffer2)  # %pcrel_hi gives upper 20 bits of PC-relative offset to buffer2, linker fills this at link time
-      addi  a1, a1, %pcrel_lo(3b)   # %pcrel_lo gives lower 12 bits using same target as auipc at label 3b, works across sections
+3:    auipc a1, %pcrel_hi(buffer2)  
+      addi  a1, a1, %pcrel_lo(3b)   
       addi a2, x0, 1
      ecall
-4:   auipc t0, %pcrel_hi(buffer1)   # %pcrel_hi gives upper 20 bits of PC-relative offset to buffer1, linker fills this at link time
-     addi  t0, t0, %pcrel_lo(4b)    # %pcrel_lo gives lower 12 bits using same target as auipc at label 4b, works across sections
+4:   auipc t0, %pcrel_hi(buffer1)  
+     addi  t0, t0, %pcrel_lo(4b)    
     lb t1, 0(t0)
-5:   auipc t0, %pcrel_hi(buffer2)   # %pcrel_hi gives upper 20 bits of PC-relative offset to buffer2, linker fills this at link time
-     addi  t0, t0, %pcrel_lo(5b)    # %pcrel_lo gives lower 12 bits using same target as auipc at label 5b, works across sections
+5:   auipc t0, %pcrel_hi(buffer2)  
+     addi  t0, t0, %pcrel_lo(5b)    
     lb t2, 0(t0)
     bne t1, t2, notpaln
     addi s2, s2, 1 #l=l+1
@@ -67,16 +67,16 @@ main:
     notpaln:
       addi a7, x0, 64 #for print a7=64
     addi a0, x0, 1 #its fd here 1 is stdout 0 is stdin and 2 is stdout we can use other fd also to write i other file
-6:  auipc a1, %pcrel_hi(No)         # %pcrel_hi gives upper 20 bits of PC-relative offset to No, linker fills this at link time
-    addi  a1, a1, %pcrel_lo(6b)     # %pcrel_lo gives lower 12 bits using same target as auipc at label 6b, works across sections
+6:  auipc a1, %pcrel_hi(No)       
+    addi  a1, a1, %pcrel_lo(6b)     
     addi a2, x0, 3 #a2- no. of bytes here 3
     ecall
      beq x0, x0, end
      ypaln:
        addi a7, x0, 64
     addi a0, x0, 1
-7:  auipc a1, %pcrel_hi(Yes)        # %pcrel_hi gives upper 20 bits of PC-relative offset to Yes, linker fills this at link time
-    addi  a1, a1, %pcrel_lo(7b)     # %pcrel_lo gives lower 12 bits using same target as auipc at label 7b, works across sections
+7:  auipc a1, %pcrel_hi(Yes)        
+    addi  a1, a1, %pcrel_lo(7b)     
     addi a2, x0, 4
     ecall
     end:

@@ -37,34 +37,44 @@ stoi_ret:
     jalr x0, ra, 0
 
 push:
-    add  s7, ra, x0
-    add  s6, a0, x0
-    addi a0, x0, 16
+    # 16-byte alignment
+    addi sp, sp, -16
+    sd   ra, 8(sp)
+    sd   s0, 0(sp)
+    
+    add  s0, a0, x0      # save index to push
+    addi a0, x0, 16      # space for (int index, padding, void* next)
     jal  ra, malloc
-    add  t0, a0, x0
-    sw   s6, 0(t0)
-1:  auipc t1, %pcrel_hi(head)
-    ld   t2, %pcrel_lo(1b)(t1)
-    sd   t2, 8(t0)
-    sd   t0, %pcrel_lo(1b)(t1)
-    jalr x0, s7, 0
+    
+    sw   s0, 0(a0)       # node->val = index
+    
+    auipc t0, %pcrel_hi(head)
+    ld    t1, %pcrel_lo(push)(t0)
+    sd    t1, 8(a0)       # node->next = head
+    sd    a0, %pcrel_lo(push)(t0) # head = node
+    
+    ld   ra, 8(sp)
+    ld   s0, 0(sp)
+    addi sp, sp, 16
+    jalr x0, ra, 0
 
 pop:
-1:  auipc t0, %pcrel_hi(head)
-    addi  t0, t0, %pcrel_lo(1b)
-    ld   t1, 0(t0)
-    ld   t2, 8(t1)
-    sd   t2, 0(t0)
+    auipc t0, %pcrel_hi(head)
+    ld    t1, %pcrel_lo(pop)(t0)
+    beq   t1, x0, pop_ret
+    ld    t2, 8(t1)       # next = head->next
+    sd    t2, %pcrel_lo(pop)(t0)
+pop_ret:
     jalr x0, ra, 0
 
 top:
-1:  auipc t0, %pcrel_hi(head)
-    addi  t0, t0, %pcrel_lo(1b)
-    ld   t1, 0(t0)
-    lw   a0, 0(t1)
+    auipc t0, %pcrel_hi(head)
+    ld    t1, %pcrel_lo(top)(t0)
+    lw    a0, 0(t1)       # return index
     jalr x0, ra, 0
 
 main:
+    # Maintain 16-byte alignment
     addi sp, sp, -80
     sd   ra, 72(sp)
     sd   s0, 64(sp)
@@ -72,70 +82,72 @@ main:
     sd   s2, 48(sp)
     sd   s3, 40(sp)
     sd   s4, 32(sp)
-    sd   s5, 24(sp)
-    sd   s6, 16(sp)
-    sd   s7,  8(sp)
 
-    addi s0, a0, -1
-    add  s3, a1, x0
-    beq  s0, x0, exit
+    addi s0, a0, -1      # s0 = count of numbers
+    add  s3, a1, x0      # s3 = argv
+    beq  s0, x0, cleanup
 
+    # Allocate input array
     slli a0, s0, 2
     jal  ra, malloc
     add  s1, a0, x0
 
+    # Allocate result array
     slli a0, s0, 2
     jal  ra, malloc
     add  s2, a0, x0
 
-1:  auipc t0, %pcrel_hi(head)
-    sd   x0, %pcrel_lo(1b)(t0)
-
-    addi s4, x0, 1
-argtoint:
-    blt  s0, s4, nge
-    slli t1, s4, 3
-    add  t1, s3, t1
-    ld   a0, 0(t1)
+    # Parse argv to int array
+    addi s4, x0, 0
+parse_args:
+    beq  s4, s0, solve
+    addi t0, s4, 1
+    slli t0, t0, 3
+    add  t0, s3, t0
+    ld   a0, 0(t0)
     jal  ra, string_to_int
-    addi t1, s4, -1
-    slli t1, t1, 2
+    slli t1, s4, 2
     add  t1, s1, t1
     sw   a0, 0(t1)
     addi s4, s4, 1
-    jal  x0, argtoint
+    jal  x0, parse_args
 
-nge:
-    addi s4, s0, -1
+solve:
+    addi s4, s0, -1      # i = count - 1
 loop_main:
     blt  s4, x0, print
 loop_while:
-1:  auipc t0, %pcrel_hi(head)
-    addi  t0, t0, %pcrel_lo(1b)
-    ld   t1, 0(t0)
-    beq  t1, x0, noelem
-    jal  ra, top
-    slli t1, a0, 2
-    add  t1, s1, t1
-    lw   t1, 0(t1)
-    slli t2, s4, 2
-    add  t2, s1, t2
-    lw   t2, 0(t2)
-    blt  t2, t1, found
-    jal  ra, pop
-    jal  x0, loop_while
-noelem:
+    auipc t0, %pcrel_hi(head)
+    ld    t1, %pcrel_lo(loop_while)(t0)
+    beq   t1, x0, no_greater
+    
+    jal   ra, top
+    add   t3, a0, x0     # t3 = index from stack
+    slli  t3, t3, 2
+    add   t3, s1, t3
+    lw    t3, 0(t3)      # t3 = input[stack_top]
+    
+    slli  t4, s4, 2
+    add   t4, s1, t4
+    lw    t4, 0(t4)      # t4 = input[i]
+    
+    blt   t4, t3, found
+    jal   ra, pop
+    jal   x0, loop_while
+
+no_greater:
     slli t1, s4, 2
     add  t1, s2, t1
     addi t2, x0, -1
     sw   t2, 0(t1)
-    jal  x0, push_i
+    jal  x0, push_curr
+
 found:
-    jal  ra, top
     slli t1, s4, 2
     add  t1, s2, t1
-    sw   a0, 0(t1)
-push_i:
+    sw   a0, 0(t1)       # store the index found by top
+
+push_curr:
     add  a0, s4, x0
     jal  ra, push
     addi s4, s4, -1
@@ -144,37 +156,36 @@ push_i:
 print:
     add  s4, x0, x0
 print_loop:
-    blt  s4, s0, do_print
-    jal  x0, exit
-do_print:
+    beq  s4, s0, cleanup
     slli t0, s4, 2
     add  t0, s2, t0
     lw   a1, 0(t0)
+    
     addi t1, s0, -1
-    beq  s4, t1, last_val
-1:  auipc a0, %pcrel_hi(fmt)
-    addi  a0, a0, %pcrel_lo(1b)
+    beq  s4, t1, print_last
+    
+    auipc a0, %pcrel_hi(fmt)
+    addi a0, a0, %pcrel_lo(print_loop)
     jal  ra, printf
     addi s4, s4, 1
     jal  x0, print_loop
-last_val:
-1:  auipc a0, %pcrel_hi(fmt_last)
-    addi  a0, a0, %pcrel_lo(1b)
+
+print_last:
+    auipc a0, %pcrel_hi(fmt_last)
+    addi a0, a0, %pcrel_lo(print_last)
     jal  ra, printf
 
-exit:
-1:  auipc a0, %pcrel_hi(newline)
-    addi  a0, a0, %pcrel_lo(1b)
+cleanup:
+    auipc a0, %pcrel_hi(newline)
+    addi a0, a0, %pcrel_lo(cleanup)
     jal  ra, printf
+
     ld   ra, 72(sp)
     ld   s0, 64(sp)
     ld   s1, 56(sp)
     ld   s2, 48(sp)
     ld   s3, 40(sp)
     ld   s4, 32(sp)
-    ld   s5, 24(sp)
-    ld   s6, 16(sp)
-    ld   s7,  8(sp)
     addi sp, sp, 80
     add  a0, x0, x0
     addi a7, x0, 93
